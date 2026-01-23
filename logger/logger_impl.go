@@ -150,7 +150,7 @@ func (l *logger) SetLogID(value interface{}) {
 //nolint:ireturn // Returning interface to match ILogger signature
 func (l *logger) SubLogger(format string, args ...any) ILogger {
 	newLogger := *l
-	newLogger.prefix = fmt.Sprintf("["+l.prefix+format+"] ", args...)
+	newLogger.prefix = fmt.Sprintf(l.prefix+"["+format+"] ", args...)
 
 	return &newLogger
 }
