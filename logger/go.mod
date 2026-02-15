@@ -3,7 +3,7 @@ module github.com/GabrielNunesIT/go-libs/logger
 go 1.25
 
 require (
-	github.com/GabrielNunesIT/go-libs/webserver v0.1.0
+	github.com/GabrielNunesIT/go-libs/webserver v1.0.0
 	github.com/labstack/gommon v0.4.2
 	github.com/rs/zerolog v1.34.0
 )
@@ -36,5 +36,3 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sys v0.39.0 // indirect
 )
-
-replace github.com/GabrielNunesIT/go-libs/webserver => ../webserver
