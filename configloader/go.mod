@@ -1,4 +1,4 @@
-module github.com/GabrielNunesIT/go-libs/config-loader
+module github.com/GabrielNunesIT/go-libs/configloader
 
 go 1.25
 

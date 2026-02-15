@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	configloader "github.com/GabrielNunesIT/go-libs/config-loader"
+	"github.com/GabrielNunesIT/go-libs/configloader"
 	"github.com/spf13/pflag"
 )
 
