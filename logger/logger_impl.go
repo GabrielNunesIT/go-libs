@@ -145,10 +145,10 @@ func (l *logger) SetLogID(value interface{}) {
 	}
 }
 
-// SubLogger creates a new logger instance with a prefixed format.
+// NewLogger creates a new logger instance with a prefixed format.
 //
 //nolint:ireturn // Returning interface to match ILogger signature
-func (l *logger) SubLogger(format string, args ...any) ILogger {
+func (l *logger) NewLogger(format string, args ...any) ILogger {
 	newLogger := *l
 	newLogger.prefix = fmt.Sprintf(l.prefix+"["+format+"] ", args...)
 

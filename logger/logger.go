@@ -50,5 +50,5 @@ type ILogger interface {
 	AddField(key string, value any)
 	SetLogID(value any)
 
-	SubLogger(format string, args ...any) ILogger
+	NewLogger(format string, args ...any) ILogger
 }

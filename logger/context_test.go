@@ -45,7 +45,6 @@ func TestNewContextWithLogger_NilContext(t *testing.T) {
 	var buf bytes.Buffer
 	l := NewConsoleLogger(&buf)
 
-	//nolint:staticcheck // testing nil context behavior
 	ctxNil := NewContextWithLogger(nil, l)
 	assert.NotNil(t, ctxNil)
 }
@@ -59,10 +58,6 @@ func TestNewContextWithLogger_PreservesExisting(t *testing.T) {
 	var bufFallback bytes.Buffer
 	fallback := NewConsoleLogger(&bufFallback)
 
-	// Should return existing context wrapper but maybe not replace logger?
-	// Implementation:
-	// if _, ok := ctx.Value(loggerKey{}).(ILogger); ok { return &contextWithLogger{ctx} }
-	// So it preserves the original logger.
 	ctxWithLogger2 := NewContextWithLogger(ctxWithLogger, fallback)
 	assert.Equal(t, l, FromCtx(ctxWithLogger2))
 }

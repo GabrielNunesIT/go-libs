@@ -2,6 +2,7 @@ package webserver_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +42,7 @@ func (m *MockLogger) SetOutput(out ...io.Writer)                          { m.ou
 func (m *MockLogger) GetOutput() []io.Writer                              { return m.output }
 func (m *MockLogger) AddField(key string, value any)                      {}
 func (m *MockLogger) SetLogID(value any)                                  {}
-func (m *MockLogger) SubLogger(format string, args ...any) logger.ILogger { return m }
+func (m *MockLogger) NewLogger(format string, args ...any) logger.ILogger { return m }
 
 func TestNewLogger(t *testing.T) {
 	l := wslogger.NewLogger()
@@ -369,3 +370,42 @@ func TestFatalj(t *testing.T) {
 	}
 	t.Fatalf("process ran with err %v, want exit status 1", err)
 }
+
+func TestNewLogger_WithJSONLogger(t *testing.T) {
+	l := wslogger.NewLogger(wslogger.WithJSONLogger())
+	assert.NotNil(t, l)
+	assert.Equal(t, "[ECHO]", l.Prefix())
+}
+
+func TestMiddleware_WithJSONLogger(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	l := wslogger.NewLogger(
+		wslogger.WithJSONLogger(),
+		wslogger.WithLogProtocol(),
+		wslogger.WithLogMethod(),
+		wslogger.WithLogURI(),
+		wslogger.WithLogStatus(),
+		wslogger.WithLogLatency(),
+	)
+
+	var buf bytes.Buffer
+	l.SetOutput(&buf)
+
+	h := l.ToMiddleware()(func(c webserver.Context) error {
+		return c.String(http.StatusOK, "json test")
+	})
+
+	err := h(c)
+	assert.NoError(t, err)
+
+	// Verify the output is valid JSON
+	var parsed map[string]interface{}
+	assert.NoError(t, json.Unmarshal(buf.Bytes(), &parsed))
+	assert.Contains(t, parsed["message"], "New request:")
+	assert.Contains(t, parsed["message"], "Method=GET")
+}
+

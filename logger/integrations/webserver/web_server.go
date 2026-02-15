@@ -31,6 +31,18 @@ func NewLogger(opts ...Option) *Logger {
 	return logInstance
 }
 
+// WithJSONLogger configures the middleware to use structured JSON output
+// instead of the default human-readable console format.
+func WithJSONLogger() Option {
+	return func(el *Logger) {
+		currentPrefix := el.Prefix()
+		el.Logger = &webserver.Logger{
+			ILogger: logger.NewJSONLogger(os.Stdout),
+		}
+		el.SetPrefix(currentPrefix)
+	}
+}
+
 func setRequestID(req *http.Request, res *echo.Response, config *loggerConfig) {
 	if config.logRequestIDHeader == "" {
 		config.logRequestIDHeader = "X-Request-ID"

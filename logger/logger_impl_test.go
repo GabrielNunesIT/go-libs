@@ -137,16 +137,16 @@ func TestLogger_SetLogID(t *testing.T) {
 	assert.Contains(t, buf.String(), "[12345]") // It might still be 12345 if the logger is immutable?
 }
 
-func TestLogger_SubLogger(t *testing.T) {
+func TestLogger_NewLogger(t *testing.T) {
 	var buf bytes.Buffer
 	l := NewConsoleLogger(&buf)
 
-	sub := l.SubLogger("sub:")
+	sub := l.NewLogger("sub:")
 	sub.Info("message")
 
-	assert.Contains(t, buf.String(), "sub: message")
+	assert.Contains(t, buf.String(), "[sub:] message")
 
-	sub2 := sub.SubLogger("sub2:")
+	sub2 := sub.NewLogger("sub2:")
 	sub2.Info("message")
-	assert.Contains(t, buf.String(), "sub: sub2: message")
+	assert.Contains(t, buf.String(), "[sub:] [sub2:] message")
 }
