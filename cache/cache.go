@@ -20,6 +20,10 @@ const (
 	PolicyLFU
 	// PolicyTTL (Time To Live) evicts the item with the soonest expiration time.
 	PolicyTTL
+	// PolicyNone disables eviction entirely. The cache grows unboundedly;
+	// entries are only removed via explicit Delete or Clear calls.
+	// This is the most efficient policy when eviction is not needed.
+	PolicyNone
 )
 
 // Cache is a thread-safe generic cache with support for different eviction policies.
@@ -145,14 +149,17 @@ func New[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
 		opt(cache)
 	}
 
-	if cache.policy == PolicyLRU || cache.policy == PolicyFIFO {
+	switch cache.policy {
+	case PolicyLRU, PolicyFIFO:
 		cache.evictList = list.New()
-	} else {
+	case PolicyLFU, PolicyTTL:
 		cache.pq = &priorityQueue[K, V]{
 			items:  make([]*entry[K, V], 0),
 			policy: cache.policy,
 		}
 		heap.Init(cache.pq)
+	case PolicyNone:
+		// No eviction structures needed
 	}
 
 	return cache
@@ -162,6 +169,16 @@ func New[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
 func (c *Cache[K, V]) Set(key K, value V) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// PolicyNone: skip all metadata and eviction bookkeeping.
+	if c.policy == PolicyNone {
+		if item, ok := c.items[key]; ok {
+			item.value = value
+		} else {
+			c.items[key] = &entry[K, V]{key: key, value: value}
+		}
+		return
+	}
 
 	now := time.Now().UnixNano()
 	var expiration int64
@@ -191,7 +208,7 @@ func (c *Cache[K, V]) Set(key K, value V) {
 	}
 
 	// Add new item
-	if c.capacity > 0 && c.Len() >= c.capacity {
+	if c.capacity > 0 && c.len() >= c.capacity {
 		c.evict()
 	}
 
@@ -204,10 +221,11 @@ func (c *Cache[K, V]) Set(key K, value V) {
 		expiration:    expiration,
 	}
 
-	if c.policy == PolicyLRU || c.policy == PolicyFIFO {
+	switch c.policy {
+	case PolicyLRU, PolicyFIFO:
 		elem := c.evictList.PushFront(item)
 		item.element = elem
-	} else {
+	case PolicyLFU, PolicyTTL:
 		heap.Push(c.pq, item)
 	}
 	c.items[key] = item
@@ -215,6 +233,18 @@ func (c *Cache[K, V]) Set(key K, value V) {
 
 // Get retrieves a value from the cache.
 func (c *Cache[K, V]) Get(key K) (V, bool) {
+	// PolicyNone: read-only map lookup under RLock.
+	if c.policy == PolicyNone {
+		c.mu.RLock()
+		defer c.mu.RUnlock()
+
+		if item, ok := c.items[key]; ok {
+			return item.value, true
+		}
+		var zero V
+		return zero, false
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -256,12 +286,14 @@ func (c *Cache[K, V]) Delete(key K) {
 
 // Len returns the number of items in the cache.
 func (c *Cache[K, V]) Len() int {
-	// Lock is already held by caller usually, but Len is public.
-	// Wait, Set calls Len() internally.
-	// If Set holds Lock, calling Len() which holds Lock will deadlock if Len uses Lock.
-	// But Set calls c.Len() which is public.
-	// I should make an internal len or just check map size.
-	// Map size is O(1).
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.items)
+}
+
+// len returns the number of items without acquiring the lock.
+// Must be called while holding c.mu.
+func (c *Cache[K, V]) len() int {
 	return len(c.items)
 }
 
@@ -281,24 +313,32 @@ func (c *Cache[K, V]) Clear() {
 
 // evict removes the item based on policy.
 func (c *Cache[K, V]) evict() {
-	if c.policy == PolicyLRU || c.policy == PolicyFIFO {
+	switch c.policy {
+	case PolicyLRU, PolicyFIFO:
 		elem := c.evictList.Back()
 		if elem != nil {
 			//nolint:forcetypeassert // evictList contains *entry[K, V]
 			c.removeElement(elem.Value.(*entry[K, V]))
 		}
-	} else if c.pq.Len() > 0 {
-		//nolint:forcetypeassert // pq contains *entry[K, V]
-		item := heap.Pop(c.pq).(*entry[K, V])
-		delete(c.items, item.key)
+	case PolicyLFU, PolicyTTL:
+		if c.pq.Len() > 0 {
+			//nolint:forcetypeassert // pq contains *entry[K, V]
+			item := heap.Pop(c.pq).(*entry[K, V])
+			delete(c.items, item.key)
+		}
+	case PolicyNone:
+		// No eviction
 	}
 }
 
 func (c *Cache[K, V]) removeElement(item *entry[K, V]) {
-	if c.policy == PolicyLRU || c.policy == PolicyFIFO {
+	switch c.policy {
+	case PolicyLRU, PolicyFIFO:
 		c.evictList.Remove(item.element)
-	} else {
+	case PolicyLFU, PolicyTTL:
 		heap.Remove(c.pq, item.index)
+	case PolicyNone:
+		// No eviction structures to clean up
 	}
 	delete(c.items, item.key)
 }

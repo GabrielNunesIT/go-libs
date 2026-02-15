@@ -195,3 +195,97 @@ func TestCacheClear(t *testing.T) {
 		t.Errorf("expected len 0, got %d", c.Len())
 	}
 }
+
+func TestCachePolicyNone(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(t *testing.T)
+	}{
+		{
+			name: "SetAndGet",
+			fn: func(t *testing.T) {
+				c := cache.New(cache.WithPolicy[string, int](cache.PolicyNone))
+				c.Set("a", 1)
+				c.Set("b", 2)
+
+				val, ok := c.Get("a")
+				if !ok || val != 1 {
+					t.Errorf("expected 'a' = 1, got %v, %v", val, ok)
+				}
+				val, ok = c.Get("b")
+				if !ok || val != 2 {
+					t.Errorf("expected 'b' = 2, got %v, %v", val, ok)
+				}
+			},
+		},
+		{
+			name: "UnboundedGrowth",
+			fn: func(t *testing.T) {
+				c := cache.New(cache.WithPolicy[int, int](cache.PolicyNone))
+				for i := range 1000 {
+					c.Set(i, i)
+				}
+				if c.Len() != 1000 {
+					t.Errorf("expected len 1000, got %d", c.Len())
+				}
+			},
+		},
+		{
+			name: "Update",
+			fn: func(t *testing.T) {
+				c := cache.New(cache.WithPolicy[string, int](cache.PolicyNone))
+				c.Set("a", 1)
+				c.Set("a", 42)
+
+				val, ok := c.Get("a")
+				if !ok || val != 42 {
+					t.Errorf("expected 'a' = 42, got %v", val)
+				}
+				if c.Len() != 1 {
+					t.Errorf("expected len 1, got %d", c.Len())
+				}
+			},
+		},
+		{
+			name: "Delete",
+			fn: func(t *testing.T) {
+				c := cache.New(cache.WithPolicy[string, int](cache.PolicyNone))
+				c.Set("a", 1)
+				c.Delete("a")
+
+				if _, ok := c.Get("a"); ok {
+					t.Errorf("expected 'a' to be deleted")
+				}
+				if c.Len() != 0 {
+					t.Errorf("expected len 0, got %d", c.Len())
+				}
+			},
+		},
+		{
+			name: "Clear",
+			fn: func(t *testing.T) {
+				c := cache.New(cache.WithPolicy[string, int](cache.PolicyNone))
+				c.Set("a", 1)
+				c.Set("b", 2)
+				c.Clear()
+
+				if c.Len() != 0 {
+					t.Errorf("expected len 0, got %d", c.Len())
+				}
+			},
+		},
+		{
+			name: "GetMiss",
+			fn: func(t *testing.T) {
+				c := cache.New(cache.WithPolicy[string, int](cache.PolicyNone))
+				if _, ok := c.Get("missing"); ok {
+					t.Errorf("expected miss for non-existent key")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, tt.fn)
+	}
+}
