@@ -12,7 +12,7 @@ import (
 
 	"github.com/GabrielNunesIT/go-libs/logger"
 	wslogger "github.com/GabrielNunesIT/go-libs/logger/integrations/webserver"
-	webserver "github.com/GabrielNunesIT/go-libs/web-server"
+	"github.com/GabrielNunesIT/go-libs/webserver"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/stretchr/testify/assert"

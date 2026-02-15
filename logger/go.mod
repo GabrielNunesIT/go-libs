@@ -3,7 +3,7 @@ module github.com/GabrielNunesIT/go-libs/logger
 go 1.25
 
 require (
-	github.com/GabrielNunesIT/go-libs/web-server v0.1.0
+	github.com/GabrielNunesIT/go-libs/webserver v0.1.0
 	github.com/labstack/gommon v0.4.2
 	github.com/rs/zerolog v1.34.0
 )
@@ -12,7 +12,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/labstack/echo-contrib v0.17.4 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -37,3 +36,5 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sys v0.39.0 // indirect
 )
+
+replace github.com/GabrielNunesIT/go-libs/webserver => ../webserver

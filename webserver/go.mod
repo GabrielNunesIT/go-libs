@@ -1,4 +1,4 @@
-module github.com/GabrielNunesIT/go-libs/web-server
+module github.com/GabrielNunesIT/go-libs/webserver
 
 go 1.25
 

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/GabrielNunesIT/go-libs/logger"
-	webserver "github.com/GabrielNunesIT/go-libs/web-server"
+	"github.com/GabrielNunesIT/go-libs/webserver"
 )
 
 type (
