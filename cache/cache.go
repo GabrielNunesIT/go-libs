@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+// flight represents an in-progress or completed loader call for singleflight.
+type flight[V any] struct {
+	wg  sync.WaitGroup
+	val V
+	err error
+}
+
 // Policy defines the eviction policy for the cache.
 type Policy int
 
@@ -35,6 +42,7 @@ type Cache[K comparable, V any] struct {
 	items     map[K]*entry[K, V]
 	pq        *priorityQueue[K, V] // Used for LFU and TTL. Uses heap.
 	evictList *list.List           // Used for LRU and FIFO. Doubly linked list.
+	flights   sync.Map             // map[K]*flight[V] — singleflight for GetOrSet
 }
 
 type entry[K comparable, V any] struct {
@@ -282,6 +290,45 @@ func (c *Cache[K, V]) Delete(key K) {
 	if item, ok := c.items[key]; ok {
 		c.removeElement(item)
 	}
+}
+
+// GetOrSet returns the cached value for key if present.
+// On a cache miss, it calls loader exactly once per key even under concurrent
+// access (singleflight), caches the result, and returns it.
+// If the loader returns an error, the value is not cached.
+func (c *Cache[K, V]) GetOrSet(key K, loader func() (V, error)) (V, error) {
+	// Fast path: cache hit.
+	if val, ok := c.Get(key); ok {
+		return val, nil
+	}
+
+	// Singleflight: only one goroutine runs the loader per key.
+	f := &flight[V]{}
+	f.wg.Add(1)
+
+	actual, loaded := c.flights.LoadOrStore(key, f)
+	if loaded {
+		// Another goroutine is already loading this key — wait for it.
+		//nolint:forcetypeassert // flights map stores *flight[V]
+		existing := actual.(*flight[V])
+		existing.wg.Wait()
+
+		return existing.val, existing.err
+	}
+
+	// This goroutine is the leader — run the loader.
+	f.val, f.err = loader()
+	f.wg.Done()
+
+	// Remove the flight entry so future calls re-evaluate.
+	c.flights.Delete(key)
+
+	// Cache the result on success.
+	if f.err == nil {
+		c.Set(key, f.val)
+	}
+
+	return f.val, f.err
 }
 
 // Len returns the number of items in the cache.

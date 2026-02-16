@@ -1,6 +1,9 @@
 package cache_test
 
 import (
+	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -280,6 +283,99 @@ func TestCachePolicyNone(t *testing.T) {
 				c := cache.New(cache.WithPolicy[string, int](cache.PolicyNone))
 				if _, ok := c.Get("missing"); ok {
 					t.Errorf("expected miss for non-existent key")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, tt.fn)
+	}
+}
+
+func TestGetOrSet(t *testing.T) {
+	tests := []struct {
+		name      string
+		fn        func(t *testing.T)
+	}{
+		{
+			name: "CacheHit",
+			fn: func(t *testing.T) {
+				c := cache.New[string, int]()
+				c.Set("a", 42)
+
+				val, err := c.GetOrSet("a", func() (int, error) {
+					t.Error("loader should not be called on cache hit")
+					return 0, nil
+				})
+				if err != nil || val != 42 {
+					t.Errorf("expected 42, got %d (err: %v)", val, err)
+				}
+			},
+		},
+		{
+			name: "CacheMiss",
+			fn: func(t *testing.T) {
+				c := cache.New[string, int]()
+
+				val, err := c.GetOrSet("a", func() (int, error) {
+					return 99, nil
+				})
+				if err != nil || val != 99 {
+					t.Errorf("expected 99, got %d (err: %v)", val, err)
+				}
+
+				// Verify it was cached.
+				cached, ok := c.Get("a")
+				if !ok || cached != 99 {
+					t.Errorf("expected cached value 99, got %d", cached)
+				}
+			},
+		},
+		{
+			name: "LoaderError",
+			fn: func(t *testing.T) {
+				c := cache.New[string, int]()
+				errFail := errors.New("fail")
+
+				_, err := c.GetOrSet("a", func() (int, error) {
+					return 0, errFail
+				})
+				if !errors.Is(err, errFail) {
+					t.Errorf("expected errFail, got %v", err)
+				}
+
+				// Verify error result was NOT cached.
+				if _, ok := c.Get("a"); ok {
+					t.Error("expected error result to not be cached")
+				}
+			},
+		},
+		{
+			name: "Singleflight",
+			fn: func(t *testing.T) {
+				c := cache.New[string, int]()
+				var calls atomic.Int32
+
+				var wg sync.WaitGroup
+				for range 100 {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						val, err := c.GetOrSet("key", func() (int, error) {
+							calls.Add(1)
+							time.Sleep(50 * time.Millisecond)
+							return 7, nil
+						})
+						if err != nil || val != 7 {
+							t.Errorf("expected 7, got %d (err: %v)", val, err)
+						}
+					}()
+				}
+				wg.Wait()
+
+				if n := calls.Load(); n != 1 {
+					t.Errorf("expected loader called exactly 1 time, got %d", n)
 				}
 			},
 		},
