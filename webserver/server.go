@@ -49,6 +49,7 @@ type Option func(*WebServer)
 func New(opts ...Option) *WebServer {
 	e := echo.New()
 	e.HideBanner = true
+	e.HidePort = true
 	server := &WebServer{
 		framework: e,
 		address:   ":0", // Random address
